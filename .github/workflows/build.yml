@@ -174,28 +174,10 @@ jobs:
         username: ${{ secrets.QUAY_USERNAME }}
     - name: Install cosign
       uses: sigstore/cosign-installer@main
-      with:
-        build-args: |-
-          BUILDER_IMAGE=quay.io/vexxhost/openstack-builder-${{ matrix.from }}:1e91e346ed4164361923475e3cfb6f8bc433cb70
-          RUNTIME_IMAGE=quay.io/vexxhost/openstack-runtime-${{ matrix.from }}:9080bbaebe90d82e96c57144afc0aaeb33a9180b
-          RELEASE=${{ matrix.release }}
-          PROJECT=neutron
-          PROJECT_REPO=https://github.com/vexxhost/neutron
-          PROJECT_REF=${{ env.PROJECT_REF }}
-          EXTRAS=
-          PROFILES=openvswitch vpn
-          DIST_PACKAGES=jq ethtool lshw
-          PIP_PACKAGES=cryptography python-binary-memcached neutron-vpnaas networking-infoblox
-        cache-from: -infoblox
-        cache-to: -infoblox
-        tags: ""
     - name: Verify images
       run: |-
         cosign verify --certificate-oidc-issuer=https://token.actions.githubusercontent.com --certificate-identity=https://github.com/vexxhost/docker-openstack-builder/.github/workflows/build.yml@refs/heads/main quay.io/vexxhost/openstack-builder-${{ matrix.from }}:1e91e346ed4164361923475e3cfb6f8bc433cb70
         cosign verify --certificate-oidc-issuer=https://token.actions.githubusercontent.com --certificate-identity=https://github.com/vexxhost/docker-openstack-runtime/.github/workflows/build.yml@refs/heads/main quay.io/vexxhost/openstack-runtime-${{ matrix.from }}:9080bbaebe90d82e96c57144afc0aaeb33a9180b
-      with:
-        dst: ""
-        src: ""
     - name: Build image
       uses: docker/build-push-action@v3
       with:
@@ -244,22 +226,22 @@ jobs:
           EXTRAS=
           PROFILES=openvswitch vpn
           DIST_PACKAGES=jq ethtool lshw
-          PIP_PACKAGES=cryptography python-binary-memcached neutron-vpnaas
-        cache-from: type=gha,scope=${{ matrix.from }}-${{ matrix.release }}
-        cache-to: type=gha,mode=max,scope=${{ matrix.from }}-${{ matrix.release }}
+          PIP_PACKAGES=cryptography python-binary-memcached neutron-vpnaas networking-infoblox
+        cache-from: type=gha,scope=${{ matrix.from }}-${{ matrix.release }}-infoblox
+        cache-to: type=gha,mode=max,scope=${{ matrix.from }}-${{ matrix.release }}-infoblox
         context: .
         platforms: linux/amd64,linux/arm64
         push: ${{ github.event_name == 'push' }}
         sbom: "true"
-        tags: quay.io/vexxhost/neutron:${{ env.PROJECT_REF }}-${{ matrix.from }}-${{ github.sha }}
+        tags: quay.io/vexxhost/neutron-infoblox:${{ env.PROJECT_REF }}-${{ matrix.from }}-${{ github.sha }}
       env:
         DOCKER_CONTENT_TRUST: "1"
     - name: Promote image
       uses: akhilerm/tag-push-action@v2.0.0
       if: github.event_name == 'push' && ((matrix.from == 'focal') || (matrix.from == 'jammy' && matrix.release != 'yoga'))
       with:
-        dst: quay.io/vexxhost/neutron:${{ matrix.release }}
-        src: quay.io/vexxhost/neutron:${{ env.PROJECT_REF }}-${{ matrix.from }}-${{ github.sha }}
+        dst: quay.io/vexxhost/neutron-infoblox:${{ matrix.release }}
+        src: quay.io/vexxhost/neutron-infoblox:${{ env.PROJECT_REF }}-${{ matrix.from }}-${{ github.sha }}
     - name: Sign the container image
       run: cosign sign --yes quay.io/vexxhost/horizon@${{ steps.push-step.outputs.digest }}
       if: ${{ github.event_name == 'push' }}
